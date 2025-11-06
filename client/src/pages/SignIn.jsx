@@ -17,9 +17,11 @@ const SignIn = () => {
     setLoading(true);
     setError(null);
 
+    const API_URL = import.meta.env.VITE_API_URL;
+
     try {
       const response = await axios.post(
-        "http://localhost:5000/api/auth/signin",
+        `${API_URL}/api/auth/signin`,
         {
           email: values.email,
           password: values.password,
