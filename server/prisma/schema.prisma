@@ -1,0 +1,161 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+/// -----------------------------
+/// User Model
+/// -----------------------------
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String?   @unique
+  name         String
+  passwordHash String?   // optional if email/password login
+  role         Role      @default(USER)
+  createdAt    DateTime  @default(now())
+
+  inventories  Inventory[]         @relation("OwnerInventories")
+  writeAccess  InventoryAccess[]
+  likedItems   ItemLike[]
+  posts        Post[]
+  createdItems Item[]              @relation("CreatedByItems") // <-- fix relation
+}
+
+/// -----------------------------
+/// Inventory Model
+/// -----------------------------
+model Inventory {
+  id            Int       @id @default(autoincrement())
+  title         String
+  description   String?
+  category      Category
+  tags          String[]  
+  imageUrl      String?
+  isPublic      Boolean   @default(false)
+  
+  ownerId       Int
+  owner         User      @relation("OwnerInventories", fields: [ownerId], references: [id])
+  
+  items         Item[]
+  accessList    InventoryAccess[]
+  customFields  CustomField[]
+  customIdFormat CustomIdFormat?  // one-to-one relationship
+  
+  posts         Post[]             // <-- fix relation for Post
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  version       Int       @default(1)
+}
+
+/// -----------------------------
+/// Item Model
+/// -----------------------------
+model Item {
+  id           Int       @id @default(autoincrement())
+  inventoryId  Int
+  inventory    Inventory @relation(fields: [inventoryId], references: [id])
+  
+  customId     String
+  createdById  Int
+  createdBy    User      @relation("CreatedByItems", fields: [createdById], references: [id])
+  
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  version      Int       @default(1)
+
+  fields       Json
+  likes        ItemLike[]
+}
+
+/// -----------------------------
+/// Item Like Model
+/// -----------------------------
+model ItemLike {
+  id      Int   @id @default(autoincrement())
+  userId  Int
+  itemId  Int
+  user    User  @relation(fields: [userId], references: [id])
+  item    Item  @relation(fields: [itemId], references: [id])
+
+  @@unique([userId, itemId])
+}
+
+/// -----------------------------
+/// Inventory Access Control
+/// -----------------------------
+model InventoryAccess {
+  id           Int       @id @default(autoincrement())
+  inventoryId  Int
+  userId       Int
+  inventory    Inventory @relation(fields: [inventoryId], references: [id])
+  user         User      @relation(fields: [userId], references: [id])
+}
+
+/// -----------------------------
+/// Custom Fields for Inventory
+/// -----------------------------
+model CustomField {
+  id           Int       @id @default(autoincrement())
+  inventoryId  Int
+  inventory    Inventory @relation(fields: [inventoryId], references: [id])
+  
+  type         FieldType
+  title        String
+  description  String?
+  showInTable  Boolean   @default(true)
+  order        Int
+}
+
+/// -----------------------------
+/// Custom ID Format for Inventory
+/// -----------------------------
+model CustomIdFormat {
+  id           Int       @id @default(autoincrement())
+  inventoryId  Int       @unique    // <-- one-to-one requires unique
+  inventory    Inventory @relation(fields: [inventoryId], references: [id])
+  
+  elements     Json
+}
+
+/// -----------------------------
+/// Discussion / Posts
+/// -----------------------------
+model Post {
+  id          Int       @id @default(autoincrement())
+  inventoryId Int
+  inventory   Inventory @relation(fields: [inventoryId], references: [id])
+  
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id])
+  
+  content     String
+  createdAt   DateTime  @default(now())
+}
+
+/// -----------------------------
+/// ENUMS
+/// -----------------------------
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Category {
+  EQUIPMENT
+  FURNITURE
+  BOOK
+  OTHER
+}
+
+enum FieldType {
+  SINGLE_LINE
+  MULTI_LINE
+  NUMERIC
+  DOCUMENT
+  BOOLEAN
+}
